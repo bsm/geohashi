@@ -21,8 +21,8 @@ var _ = Describe("Hash", func() {
 			Expect(hash.Precision()).To(Equal(prec))
 		},
 
-		Entry("min-precision", 1, 1),
-		Entry("max-precision", 2163558172898388, 26),
+		Entry("min-precision", uint64(1), uint8(1)),
+		Entry("max-precision", uint64(2163558172898388), uint8(26)),
 	)
 
 	It("should encode with precision", func() {
@@ -123,6 +123,27 @@ var _ = Describe("Hash", func() {
 		Expect(south.MoveY(1)).To(Equal(hash))
 		Expect(south.MoveY(-1)).To(Equal(hash.MoveY(-2)))
 	})
+
+	DescribeTable("should marshal/unmarshal binary",
+		func(prec uint8, exp []byte) {
+			h, err := EncodeWithPrecision(lat, lon, prec)
+			Expect(err).NotTo(HaveOccurred())
+
+			bin, err := h.MarshalBinary()
+			Expect(err).NotTo(HaveOccurred())
+			Expect(bin).To(Equal(exp))
+
+			var u Hash
+			Expect((&u).UnmarshalBinary(bin)).NotTo(HaveOccurred())
+			Expect(u).To(Equal(h))
+		},
+
+		Entry("min precision", uint8(1), []byte{1, 2}),
+		Entry("low precision", uint8(3), []byte{3, 60}),
+		Entry("mid precision", uint8(14), []byte{14, 200, 250, 253, 122}),
+		Entry("upper precision", uint8(20), []byte{20, 150, 150, 210, 190, 223, 30}),
+		Entry("max precision", uint8(26), []byte{26, 168, 209, 197, 197, 212, 239, 215, 7}),
+	)
 
 })
 

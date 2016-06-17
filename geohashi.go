@@ -1,6 +1,7 @@
 package geohashi
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 )
@@ -196,4 +197,24 @@ func (h Hash) Decode() (area Area) {
 	area.MaxLat = LatMin + (fx+1)/gx
 	area.MaxLon = LonMin + (fy+1)/gy
 	return
+}
+
+func (h Hash) MarshalBinary() ([]byte, error) {
+	b := make([]byte, binary.MaxVarintLen64+1)
+	b[0] = h.prec
+	n := binary.PutVarint(b[1:], int64(h.bits))
+	return b[:n+1], nil
+}
+
+func (h *Hash) UnmarshalBinary(b []byte) error {
+	if len(b) < 2 {
+		return nil
+	}
+
+	n, _ := binary.Varint(b[1:])
+	*h = Hash{
+		prec: b[0],
+		bits: uint64(n),
+	}
+	return nil
 }
