@@ -1,7 +1,0 @@
-package: github.com/bsm/geohashi
-import: []
-testImport:
-- package: github.com/onsi/ginkgo
-  subpackages:
-  - extensions/table
-- package: github.com/onsi/gomega
