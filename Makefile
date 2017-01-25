@@ -1,7 +1,7 @@
 default: vet test
 
 test:
-	go test ./... -v 1
+	go test ./... -v
 
 vet:
 	go vet ./...
