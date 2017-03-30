@@ -18,7 +18,7 @@ func Encode() {{ "ExampleEncode" | code }}
 Decode hash:
 
 ```go
-func Decode() {{ "ExampleDecode" | code }}
+func Decode() {{ "ExampleHash" | code }}
 ```
 
 ## Precision

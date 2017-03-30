@@ -23,7 +23,7 @@ func ExampleEncode() {
 	// 528212444555/20 "FJaW0r7fHg"
 }
 
-func ExampleDecode() {
+func ExampleHash() {
 	hash, _ := geohashi.NewWithPrecision(528212444555, 20)
 	area := hash.Decode()
 	lat, lon := area.Center()
