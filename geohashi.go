@@ -35,7 +35,7 @@ func (a Area) Center() (lat, lon float64) {
 	return
 }
 
-// Contains returns true if coordiantes are contained within the area.
+// Contains returns true if coordinates are contained within the area.
 func (a Area) Contains(lat, lon float64) bool {
 	return (a.MinLat <= lat && lat <= a.MaxLat &&
 		a.MinLon <= lon && lon <= a.MaxLon)
@@ -199,6 +199,7 @@ func (h Hash) Decode() (area Area) {
 	return
 }
 
+// MarshalBinary implements encoding.BinaryMarshaler
 func (h Hash) MarshalBinary() ([]byte, error) {
 	b := make([]byte, binary.MaxVarintLen64+1)
 	b[0] = h.prec
@@ -206,6 +207,7 @@ func (h Hash) MarshalBinary() ([]byte, error) {
 	return b[:n+1], nil
 }
 
+// UnmarshalBinary implements encoding.BinaryUnmarshaler
 func (h *Hash) UnmarshalBinary(b []byte) error {
 	if len(b) < 2 {
 		return nil
