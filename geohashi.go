@@ -118,9 +118,9 @@ func (h Hash) Children() []Hash {
 
 	return []Hash{
 		base,
-		Hash{prec: base.prec, bits: base.bits | 1},
-		Hash{prec: base.prec, bits: base.bits | 2},
-		Hash{prec: base.prec, bits: base.bits | 3},
+		{prec: base.prec, bits: base.bits | 1},
+		{prec: base.prec, bits: base.bits | 2},
+		{prec: base.prec, bits: base.bits | 3},
 	}
 }
 
