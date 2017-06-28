@@ -15,6 +15,8 @@ const (
 	PrecisionMin = 1
 	PrecisionMax = 26
 
+	recisionOffset = 2 * PrecisionMax
+
 	latScale = LatMax - LatMin
 	lonScale = LonMax - LonMin
 )
@@ -23,7 +25,7 @@ var errInvalidPrecision = errors.New("geohashi: invalid precision")
 
 // --------------------------------------------------------------------
 
-// Area is a square area defined through a min and max lat/lon
+// Area is a rectangle area defined through a min and max lat/lon
 type Area struct{ MinLat, MaxLat, MinLon, MaxLon float64 }
 
 // Center returns the area's centeroid coordinates
@@ -50,7 +52,7 @@ func maxDecimalPower(r float64) float64 {
 type Hash uint64
 
 func newHash(base uint64, prec uint8) Hash {
-	return Hash(base) | Hash(prec)<<52
+	return Hash(base) | Hash(prec)<<recisionOffset
 }
 
 // Encode converts a lat/lon to an geohash with maximum precision

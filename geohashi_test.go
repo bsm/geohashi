@@ -397,19 +397,19 @@ var _ = Describe("Hash", func() {
 	})
 
 	It("should zoom in", func() {
-		hash := Hash(108221613442698053)
-		children := hash.Children()
-		Expect(children).To(HaveLen(4))
+		Expect(Hash(0).Children()).To(Equal([]Hash{
+			4503599627370496,
+			4503599627370497,
+			4503599627370498,
+			4503599627370499,
+		}))
 
-		Expect(children[0]).To(Equal(Hash(113130880227486996)))
-		Expect(children[1]).To(Equal(Hash(113130880227486997)))
-		Expect(children[2]).To(Equal(Hash(113130880227486998)))
-		Expect(children[3]).To(Equal(Hash(113130880227486999)))
-
-		Expect(children[0].Precision()).To(Equal(uint8(25)))
-		Expect(children[1].Precision()).To(Equal(uint8(25)))
-		Expect(children[2].Precision()).To(Equal(uint8(25)))
-		Expect(children[3].Precision()).To(Equal(uint8(25)))
+		Expect(Hash(108221613442698053).Children()).To(Equal([]Hash{
+			113130880227486996,
+			113130880227486997,
+			113130880227486998,
+			113130880227486999,
+		}))
 	})
 
 	It("should move X", func() {
@@ -420,7 +420,6 @@ var _ = Describe("Hash", func() {
 		Expect(east.Precision()).To(Equal(uint8(24)))
 		Expect(west.Precision()).To(Equal(uint8(24)))
 
-		Expect(east).To(Equal(Hash(108221613442698055)))
 		Expect(west).To(Equal(Hash(108221613442697711)))
 
 		Expect(east.MoveX(1)).To(Equal(hash.MoveX(2)))
