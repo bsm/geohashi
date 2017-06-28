@@ -1,7 +1,6 @@
 package geohashi
 
 import (
-	"encoding/binary"
 	"errors"
 	"math"
 )
@@ -16,16 +15,17 @@ const (
 	PrecisionMin = 1
 	PrecisionMax = 26
 
+	recisionOffset = 2 * PrecisionMax
+
 	latScale = LatMax - LatMin
 	lonScale = LonMax - LonMin
 )
 
-// ErrInvalidPrecision is returned on bad precision inputs
-var ErrInvalidPrecision = errors.New("geohashi: invalid precision")
+var errInvalidPrecision = errors.New("geohashi: invalid precision")
 
 // --------------------------------------------------------------------
 
-// Area is a square area defined through a min and max lat/lon
+// Area is a rectangle area defined through a min and max lat/lon
 type Area struct{ MinLat, MaxLat, MinLon, MaxLon float64 }
 
 // Center returns the area's centeroid coordinates
@@ -49,144 +49,39 @@ func maxDecimalPower(r float64) float64 {
 // --------------------------------------------------------------------
 
 // A Hash a numeric geohash value
-type Hash struct {
-	bits uint64
-	prec uint8
-}
+type Hash uint64
 
-// New creates a new Hash with default precision
-func New(value uint64) Hash {
-	hash, _ := NewWithPrecision(value, PrecisionMax)
-	return hash
-}
-
-// NewWithPrecision creates a new Hash with custom precision
-func NewWithPrecision(value uint64, prec uint8) (h Hash, err error) {
-	if prec < PrecisionMin || prec > PrecisionMax {
-		return h, ErrInvalidPrecision
-	}
-	h.bits = value
-	h.prec = prec
-	return
+func newHash(base uint64, prec uint8) Hash {
+	return Hash(base) | Hash(prec)<<recisionOffset
 }
 
 // Encode converts a lat/lon to an geohash with maximum precision
 func Encode(lat, lon float64) Hash {
-	hash, _ := EncodeWithPrecision(lat, lon, PrecisionMax)
-	return hash
+	return EncodeWithPrecision(lat, lon, PrecisionMax)
 }
 
 // EncodeWithPrecision converts a lat/lon to an numeric geohash
-func EncodeWithPrecision(lat, lon float64, prec uint8) (h Hash, err error) {
+func EncodeWithPrecision(lat, lon float64, prec uint8) Hash {
 	if prec < PrecisionMin || prec > PrecisionMax {
-		return h, ErrInvalidPrecision
+		return 0
 	}
 
 	dx := (lat - LatMin) / latScale
 	dy := (lon - LonMin) / lonScale
 	gn := float64(uint64(1) << prec)
 
-	h.bits = interleave64(uint64(dx*gn), uint64(dy*gn))
-	h.prec = prec
-	return
+	base := interleave64(uint64(dx*gn), uint64(dy*gn))
+	return newHash(base, prec)
 }
-
-// Value returns the hash value
-func (h Hash) Value() uint64 { return h.bits }
 
 // Precision returns the prec level
-func (h Hash) Precision() uint8 { return h.prec }
+func (h Hash) Precision() uint8 { return uint8(h >> 52) }
 
-// Parent zooms out, returning the parent hash, lowering the precision. May return ErrInvalidPrecision
-// if unable to zoom out any further
-func (h Hash) Parent() (Hash, error) {
-	parent := Hash{prec: h.prec - 1}
-	if parent.prec < PrecisionMin {
-		return parent, ErrInvalidPrecision
-	}
-	parent.bits = h.bits >> 2
-	return parent, nil
-}
-
-// Children zooms in, returning four child hashes, in the followin order SW, SE, NW, NE. May return
-// nil if unable to zoom in further
-func (h Hash) Children() []Hash {
-	base := Hash{prec: h.prec + 1, bits: (h.bits << 2)}
-	if base.prec > PrecisionMax {
-		return nil
-	}
-
-	return []Hash{
-		base,
-		{prec: base.prec, bits: base.bits | 1},
-		{prec: base.prec, bits: base.bits | 2},
-		{prec: base.prec, bits: base.bits | 3},
-	}
-}
-
-// MoveX moves n steps east (positive number) or west (negative number) and
-// returns the resulting hash
-func (h Hash) MoveX(n int) Hash {
-	if n == 0 {
-		return h
-	}
-
-	shift := (64 - h.prec*2)
-	east := n > 0
-	if !east {
-		n = -n
-	}
-
-	bits := h.bits
-	for i := 0; i < n; i++ {
-		x := bits & s7
-		y := bits & s1
-		zz := uint64(s1 >> shift)
-
-		if east {
-			x += zz + 1
-		} else {
-			x = (x | zz) - zz - 1
-		}
-		x &= s7 >> shift
-		bits = x | y
-	}
-	return Hash{bits, h.prec}
-}
-
-// MoveY moves n steps north (positive number) or south (negative number) and
-// returns the resulting hash
-func (h Hash) MoveY(n int) Hash {
-	if n == 0 {
-		return h
-	}
-
-	shift := (64 - h.prec*2)
-	east := n > 0
-	if !east {
-		n = -n
-	}
-
-	bits := h.bits
-	for i := 0; i < n; i++ {
-		x := bits & s7
-		y := bits & s1
-		zz := uint64(s7 >> shift)
-
-		if east {
-			y += zz + 1
-		} else {
-			y = (y | zz) - zz - 1
-		}
-		y &= s1 >> shift
-		bits = x | y
-	}
-	return Hash{bits, h.prec}
-}
+func (h Hash) base() uint64 { return uint64(h & s8) }
 
 // Decode decodes a hash into an area
 func (h Hash) Decode() (area Area) {
-	x, y := deinterleave64(h.bits)
+	x, y := deinterleave64(h.base())
 	fx, fy := float64(x), float64(y)
 
 	gn := float64(uint(1) << h.Precision())
@@ -199,24 +94,86 @@ func (h Hash) Decode() (area Area) {
 	return
 }
 
-// MarshalBinary implements encoding.BinaryMarshaler
-func (h Hash) MarshalBinary() ([]byte, error) {
-	b := make([]byte, binary.MaxVarintLen64+1)
-	b[0] = h.prec
-	n := binary.PutVarint(b[1:], int64(h.bits))
-	return b[:n+1], nil
+// Parent zooms out, returning the parent hash, lowering the precision. This function may
+// return Hash(0) if unable to zoom out further
+func (h Hash) Parent() Hash {
+	prec := h.Precision()
+	if prec <= PrecisionMin {
+		return 0
+	}
+	return newHash(h.base()>>2, prec-1)
 }
 
-// UnmarshalBinary implements encoding.BinaryUnmarshaler
-func (h *Hash) UnmarshalBinary(b []byte) error {
-	if len(b) < 2 {
+// Children zooms in, returning four child hashes, in the following order SW, SE, NW, NE.
+// This function may return nil if unable to zoom in further
+func (h Hash) Children() []Hash {
+	prec := h.Precision()
+	if prec >= PrecisionMax {
 		return nil
 	}
 
-	n, _ := binary.Varint(b[1:])
-	*h = Hash{
-		prec: b[0],
-		bits: uint64(n),
+	child := newHash(h.base()<<2, prec+1)
+	return []Hash{child, child | 1, child | 2, child | 3}
+}
+
+// MoveX moves n steps east (positive number) or west (negative number) and
+// returns the resulting hash
+func (h Hash) MoveX(n int) Hash {
+	if n == 0 {
+		return h
 	}
-	return nil
+
+	prec := h.Precision()
+	shift := (64 - prec*2)
+	east := n > 0
+	if !east {
+		n = -n
+	}
+
+	base := h.base()
+	for i := 0; i < n; i++ {
+		x := base & s7
+		y := base & s1
+		zz := uint64(s1 >> shift)
+
+		if east {
+			x += zz + 1
+		} else {
+			x = (x | zz) - zz - 1
+		}
+		x &= s7 >> shift
+		base = x | y
+	}
+	return newHash(base, prec)
+}
+
+// MoveY moves n steps north (positive number) or south (negative number) and
+// returns the resulting hash
+func (h Hash) MoveY(n int) Hash {
+	if n == 0 {
+		return h
+	}
+
+	prec := h.Precision()
+	shift := (64 - prec*2)
+	east := n > 0
+	if !east {
+		n = -n
+	}
+
+	base := h.base()
+	for i := 0; i < n; i++ {
+		x := base & s7
+		y := base & s1
+		zz := uint64(s7 >> shift)
+
+		if east {
+			y += zz + 1
+		} else {
+			y = (y | zz) - zz - 1
+		}
+		y &= s1 >> shift
+		base = x | y
+	}
+	return newHash(base, prec)
 }
